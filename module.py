@@ -24,9 +24,7 @@ from System import Decimal
 from pyximc import *
 
 
-def connectLIA(rm):
-    inst = rm.open_resource('GPIB0::8::INSTR')
-    return inst
+
 
 def measureLockInNoise(liamp, pr):
     
@@ -64,22 +62,7 @@ def takeLockInPowerMeasure(powMeter, liamp):
 
     return pow_diff
 
-# POWER METER
     
-def ConnectPM():
-    
-    meter = TLPMX()
-
-    try:
-        deviceCount = meter.findRsrc()
-        resourceName = meter.getRsrcName(0)
-        model, SN, mnfct, deviceAv = meter.getRsrcInfo(0)
-        print(str(SN) + " is connected.")
-        meter = TLPMX(resourceName, True, False)
-    except:
-        print("No Device Found!")
-
-    return meter
 
 def measure_power(powMeter):
     power = c_double()
@@ -102,39 +85,9 @@ def avg_power(powMeter, numMeasures, latency):
     return np.mean(powerVals)
 
 
-def trackNoise(meter, liamp):
-    # Measure the standard deviation of data across time
-    # Plots data
-    
-    stdevs = []
-    tStamps = []
-    t=1
-    
-    # Intialise plot
-    fig, ax = plt.subplots()
-    ax.set_ylabel("Standard deviation")
-    ax.set_xlabel("Time")
-    ax.grid()
-    
-    while t <= time:
-        # Take power, get sd
-        p, sd = takeLockInPowerMeasure(meter, liamp)
-        print("{} seconds".format(t))
-        tStamps.append(t)
-        stdevs.append(sd)
-        ax.plot(tStamps, stdevs, "r-o")
-        plt.pause(0.05)
-        
-        t += 1
-        
-    ax.plot(tStamps, stdevs, "r-o")
-    print("Mean std: {}".format(np.mean(stdevs)))
-    plt.show()
-      
-
 
 def calib_move(lib, device_id, position, calb, unit):
-    print("\nMoving to {0} {1}".format(position, unit))
+    #print("\nMoving to {0} {1}".format(position, unit))
     result = lib.command_move_calb(device_id, c_float(position), byref(calb))
     if result != 0:
         print("Result: " + repr(result))
@@ -147,7 +100,7 @@ def calib_movr(lib, device_id, shift, calb, unit):
     
 
 def calb_get_position(lib, device_id, calb, units):
-    print("\nRead position")
+    #print("\nRead position")
     pos = get_position_calb_t()
     result = lib.get_position_calb(device_id, byref(pos), byref(calb))
     if result != 0:
@@ -158,92 +111,12 @@ def calb_get_position(lib, device_id, calb, units):
 
 
 def test_wait_for_stop(lib, device_id, interval):
-    print("\nWaiting for stop")
+    #print("\nWaiting for stop")
     result = lib.command_wait_for_stop(device_id, interval)
     if result != 0:
         print("Result: " + repr(result))
 
-def centreBeam(psd, time_interval):
-    # Takes measurements from the psd and averages them over time
-    # checks if user is satisfied with proximity to zero
-    # if not then repeat
-    # PSD: psd object
-    # time_interval: time to record for
-    diff_vals = []
-    num_measures = 20
-    start = timer()
-    now = 0
-    while now < time_interval:
-        
-        # Get ydiff
-        status = psd.Status
-        yDiff = status.PositionDifference.Y
-        diff_vals = np.append(diff_vals, yDiff)
-        
-        # Take moving average of last few measurements
-        moving_avg = np.mean(diff_vals[-num_measures:])
-        
-        # Update console showing new value
-        print(f"\r{moving_avg}", end="")
-        
-        time.sleep(0.1)
-        now = timer() - start
-        
-    print("\nDone")
-    print("\n Overall avg: {}".format(np.mean(diff_vals)))
     
-def connectKPA():
-    
-    # Initialise device
-    serialPSD = str("69253257")
-    device_PSD = KCubePositionAligner.CreateKCubePositionAligner(serialPSD)
-    DeviceManagerCLI.BuildDeviceList()
-    print("Connecting to device")
-    device_PSD.Connect(serialPSD)
-    
-    # Start polling
-    device_PSD.StartPolling(250)
-    time.sleep(0.25)  # wait statements are important to allow settings to be sent to the device
-    device_PSD.EnableDevice()
-    time.sleep(0.25)  # Wait for device to enable
-   
-    # Get Device information
-    print("Getting device info")
-    device_info = device_PSD.GetDeviceInfo()
-    print(device_info.Description)
-    if not device_PSD.IsSettingsInitialized():    
-            device_PSD.WaitForSettingsInitialized(10000)  # 10 second timeout
-            assert device_PSD.IsSettingsInitialized() is True   
-    
-    return device_PSD
-
-def connectKPZ(serial):
-    
-    # Initialise device
-    #serial = str("29252602")
-    device_KPZ = KCubePiezo.CreateKCubePiezo(serial)
-    DeviceManagerCLI.BuildDeviceList()
-    print("Connecting to device")
-    device_KPZ.Connect(serial)
-
-    # Start polling and enable
-    device_KPZ.StartPolling(250)  #250ms polling rate
-    time.sleep(0.25)
-    device_KPZ.EnableDevice()
-    time.sleep(0.25)  # Wait for device to enable
-
-     # Get Device information
-    print("Getting device info")
-    device_info = device_KPZ.GetDeviceInfo()
-    print(device_info.Description)
-    if not device_KPZ.IsSettingsInitialized():    
-            device_KPZ.WaitForSettingsInitialized(10000)  # 10 second timeout
-            assert device_KPZ.IsSettingsInitialized() is True   
-
-    # Device configuration must be loaded before any functions passed
-    device_config = device_KPZ.GetPiezoConfiguration(serial)
-
-    return device_KPZ
     
 
 def runLockInScan(lockIn, motor_id, start, end, step, var_name):
@@ -347,29 +220,13 @@ def plotData(angles, data, ylabel):
     plt.show()
     
     return fig
-    
-def ConnectMotor():
-    
-    motor_uri = "xi-com:\\\\.\\COM3"      # Serial port
-    # Get device ID
-    motor_id = lib.open_device(motor_uri.encode())
-    if motor_id > 0:
-        print("Device with URI {} successfully opened".format(motor_uri))
-    else:
-        raise RuntimeError("Failed to open device with URI", motor_uri)
-    
-    # Get device info
-    test_info(lib, motor_id)
-    test_status(lib, motor_id)
-    
-    return motor_id
 
 def test_info(lib, device_id):
     print("\nGet device info")
     x_device_information = device_information_t()
     result = lib.get_device_information(device_id, byref(x_device_information))
     print("Result: " + repr(result))
-    if result == Result.Ok:
+    if result != Result.Ok:
         print("Device information:")
         print(" Manufacturer: " +
                 repr(string_at(x_device_information.Manufacturer).decode()))
@@ -386,7 +243,7 @@ def test_status(lib, device_id):
     x_status = status_t()
     result = lib.get_status(device_id, byref(x_status))
     print("Result: " + repr(result))
-    if result == Result.Ok:
+    if result != Result.Ok:
         print("Status.CurSpeed: " + repr(x_status.CurSpeed))
         print("Status.Upwr: " + repr(x_status.Upwr))
         print("Status.Iusb: " + repr(x_status.Iusb))
@@ -406,76 +263,6 @@ def get_beam_coords(PSD):
     yDiff = status.PositionDifference.Y/quadSum
           
     return xDiff, yDiff, quadSum
-
-def runBeamScan(piezo, lockIn, positions):
-    # piezo: piezo controller object
-    # lockIn: lock-in amplifier object
-    # positions: array of piezo stage positions at which measurements are taken
-    # name of variable/polarisation state i.e TM_YDIFF or TE_YDIFF
-    #
-    # Takes Ydiff against stage position, measures signal from lock-in  
-    # for each position (e.g every 1um), take ydiff measure
-    # this should be done for both s and p states
-    # fits straight line to data using least squares
-    # plot and compare x intercepts, where line crosses zero for each state
-    # difference between intercepts in um is equal to GH shift
-    
-        
-    # Convert positions to piezo voltage. Piezo range is 20um. MaxVoltage = 75V
-    voltages = []
-    positions = np.array(positions)
-    voltages = positions/20 * 75
-
-    # set piezo displacement to zero before locking in
-    piezo.SetZero()
-    print("Setting displacement to zero...")
-    time.sleep(5)
-    
-    # Set auto phase
-    print("\nSetting auto-phase...")
-    lockIn.write("APHS")
-    time.sleep(10)
-
-    yDiffs = []  
-    errors = []
-    input("Ensure beam is on positive end of QPD before proceeding with measurement...then press enter")
-    
-    for v in voltages:
-            
-        # move stage
-        print("\nMoving stage to next position...")
-        newVoltage = Decimal(v)
-        piezo.SetOutputVoltage(newVoltage)
-        time.sleep(2)
-        print(f'Moved to {piezo.GetOutputVoltage()}')
-        
-        # complete fast lockIn
-       # lockIn.write(f"OFLT {9}") # 300ms TC
-        #time.sleep(3)
-        #lockIn.write(f"OFLT {11}") # 3s TC
-        
-        print("Taking measurement..")
-        time.sleep(8)
-
-        # take many readings and average
-        ydiff, stdev = getAvgLockInReading(lockIn, 5)
-
-        # store mean and SD
-        yDiffs.append(ydiff)
-        errors.append(stdev)
-        
-        print("Signal: {}\n".format(ydiff))
-    
-    # return piezo displacement to zero 
-    piezo.SetZero()
-    time.sleep(3)
-    
-    # perform least squares regression
-    # Get parameters and covariance from curve_fit
-    para, pcov = curve_fit(linearFunc, positions, yDiffs)
-    
-   
-    return yDiffs, para, errors
     
 
 
@@ -778,6 +565,9 @@ def bestLockinParaEstimate(amp1, amp2, tcMax):
 
     return sd_data
 
+
+
+
 def meanFilterConv(data, filter_size):
     #
     # Output: Returns numpy array of data convolved with mean 
@@ -801,6 +591,9 @@ def meanFilterConv(data, filter_size):
     out = np.insert(removed, overlap, convData)
     
     return out
+
+
+
 
 def recordSignalsAndPower(amp1, amp2, powMeter, period):
     # amp: lock in amplifier object
@@ -850,6 +643,8 @@ def recordSignalsAndPower(amp1, amp2, powMeter, period):
     return signal_amp1, signal_amp2, power, timestamps
 
 
+
+
 def normZScore(data):
 
     # calculates z-score normalisation of data
@@ -889,7 +684,226 @@ def gradientShiftEstimate(TM_signal, TE_signal):
     return shift_estimates
         
 
+
+
+
+
+def PMAngleScan(meter, motor_id, start, end, step, mPeriod):
     
+    # Output: Scans each angle, returns avg power measurement for each angle
+    # plots and saves output as csv
+    #
+    # Args
+    # 
+    # meter: power meter object
+    # motor_id: 
+    # Start: Start of arc (degrees)
+    # End: End of arc (degrees)
+    # step: step size (degrees)
+    # mPeriod: Time spent on each measurement
+
+    # Set fixed parameters
+    units = "degrees"
+    calib = calibration_t()
+    calib.A = c_double(0.01)   
+    calib.MicrostepMode = 9    
+    
+    print("\nStarting measurements")
+    power_measurements = [] 
+    power_stdevs = []
+    angles = np.arange(start, end+step, step)
+    
+    # Repeat for each angle
+    for a in angles:
+        
+        # Move to angle
+        calib_move(lib, motor_id, a, calib, units)
+        test_wait_for_stop(lib, motor_id, 100)
+        calb_get_position(lib, motor_id, calib, units) 
+        
+        # Find correct range before starting measurement
+        if a == angles[0]:
+            meter.setPowerAutoRange(True)
+            time.sleep(2)
+            
+            #auto range must be set to false before measurement sequence.
+            meter.setPowerAutoRange(False)
+        
+        # Take power measurement
+        print("\nTaking power measurement")
+        power, sd = takeAvgPowerMeasure(meter, mPeriod)
+        time.sleep(0.2)
+        power_measurements.append(power)
+        power_stdevs.append(sd)
+    
+    # Fit data to curve and plot
+    
+    # Set file name prefix
+    #now = datetime.now()
+    #current_time = now.strftime("%H;%M")
+    #file_prefix = "PM-{}-{}-{}-{}-".format(start, end, step, mPeriod/1000) + current_time 
+    #figName = file_prefix + ".png"
+    
+    # Save fig to png in figs folder
+    #os.chdir("figs")
+    #fig.savefig(figName)
+    #os.chdir("..")
+    
+    # Save data to csv
+    #saveDataCSV(angles, power_measurements, power_stdevs, file_prefix)
+
+    return angles, power_measurements, power_stdevs
+
+
+
+
+def AmpAngleScan(amp1, amp2, motor_id, angles):
+
+    # Output: Scans each angle, returns avg power measurement for each angle
+    # plots and saves output as csv
+    #
+    # Args
+    # 
+    # amp[n]: lock-in amplifier resource
+    # motor_id: motor rotation stage resource
+    # angles: numpy array of angles to scan
+
+    # Set fixed parameters
+    units = "degrees"
+    calib = calibration_t()
+    calib.A = c_double(0.01)   
+    calib.MicrostepMode = 9    
+    
+    print("\nStarting measurements")
+    signal_amp1 = []
+    signal_amp2 = []  
+    
+    # Repeat for each angle
+    for a in angles:
+        
+        # Move to angle
+        calib_move(lib, motor_id, a, calib, units)
+        test_wait_for_stop(lib, motor_id, 100)
+        calb_get_position(lib, motor_id, calib, units) 
+
+        # wait for lock-in
+        time.sleep(1.5)
+            
+        # Take signal measurement
+        print("\nTaking power measurement")
+        sign = np.sign(float(amp1.query("OUTP? 1")))
+        value1 = sign * 2 * float(amp1.query("OUTP? 3")) # get magnitude
+        
+        sign = np.sign(float(amp2.query("OUTP? 1")))
+        value2 = sign * 2 * float(amp2.query("OUTP? 3")) 
+        
+        signal_amp1.append(value1)
+        signal_amp2.append(value2)
+
+    print("Scan finished\n")
+
+    return signal_amp2, signal_amp1, 
+
+
+def plotFittedData(angles, powerVals, stdevs):
+    
+    # Output: A plot of power against angle
+    #
+    # Args
+    # 
+    # angles: A list of the scanned angles 
+    # power: list of power measurements for each angle
+
+    # Create plot
+    fig, ax = plt.subplots()
+    
+    # Fit curve to data
+    #try:
+    #x_points, fitted_curve = fitCurve(angles, powerVals)
+    #ax.plot(x_points, fitted_curve, c='red')
+    
+        #print("Curve fitting failed")
+        #time.sleep(1)
+
+    # Plot data
+    ax.errorbar(angles, powerVals, stdevs, fmt='o', mfc='blue', color='black', markersize=5)
+    
+    # Plot
+    ax.grid()
+    ax.set_xlabel('Angle (deg)')
+    ax.set_ylabel('Power (W)')
+    plt.show()
+    
+    return fig
+
+
+
+def fitCurve(angles, powerVals):
+    # Fits asymmetric curve to data
+    # Output:
+    #   x_vals - x points sampled from fitted curve (x vals)
+    #   y_vals - data points for fitted curve (y vals)
+    #
+    # Args:
+    #   angles: angles sampled in scan
+    #   powerVals: measured power values at each angle
+    
+    # obtain optimised parameter values from asymmetric function
+    #initial_guess = [1.0, 65.0, 0.5, 0.1]
+    popt, pcov = curve_fit(lorentzian, angles, powerVals)
+    
+    y_vals = []
+    x_vals = np.linspace(angles[0], angles[-1], 100)
+    
+    # Calculate function value at sampled angles
+    y_vals = asymmetricFunc(x_vals, popt[0], popt[1], popt[2], popt[3], popt[4])
+    
+    return x_vals, y_vals
+
+
+
+def asymmetricFunc(x, a, b, c, d, e):
+    return (a * (1 - (b + c * (x - d)))) / ((x - d)**2 + e**2)
+
+def lorentzian(theta, I0, theta0, Gamma, Ibg):
+    return I0 * (Gamma**2 / ((theta - theta0)**2 + Gamma**2)) + Ibg
+
+def takeAvgPowerMeasure(meter, mPeriod):
+    
+    # Output: The mean of 10000 samples for duration mPeriod
+
+    # Args
+    #
+    # meter: power meter object
+    # mPeriod: time period of measurement in ms, must be integer
+    #
+    # The max measurement period is 100ms 
+    # so averaging must be used for longer mPeriods
+
+    if mPeriod < 100:
+        mPeriod = 100
+    
+    # Set measurement parameters
+    averaging = round(mPeriod/100) # Frequency of sample averaging (2 = 50KHz sampling, 4 = 25KHz sampling etc.)
+    meter.confPowerMeasurementSequence(averaging) 
+
+    # Start measurement sequence
+    autoTriggerDelay = 0
+    triggerForced = meter.startMeasurementSequence(autoTriggerDelay)
+
+    # Set number of measurements
+    baseTime = 100
+    dataSize = baseTime * 100 # Max number of measurements is 10,000
+
+    timeStamps = (c_float * dataSize)()
+    data = (c_float * dataSize)() 
+    meter.getMeasurementSequence(baseTime, timeStamps, data, None)   
+    
+    meanPower = np.mean(data)
+    sdPower = np.std(data)
+    print("\nMean: " + str(meanPower))
+    
+    return meanPower, sdPower
 
 
 
