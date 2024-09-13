@@ -22,7 +22,7 @@ from Thorlabs.MotionControl.KCube.PiezoCLI import *
 from Thorlabs.MotionControl.GenericPiezoCLI.Piezo import *
 from System import Decimal 
 from pyximc import *
-from module import *
+from Analytics import *
 
 
 # LOCK-IN AMP
@@ -75,6 +75,9 @@ def connectKPA():
     DeviceManagerCLI.BuildDeviceList()
     print("Connecting to device")
     device_PSD.Connect(serialPSD)
+    
+    # set opertaing mode
+    device_PSD.SetOperatingMode(PositionAlignerStatus.OperatingModes.Monitor, False)
     
     # Start polling
     device_PSD.StartPolling(250)
@@ -138,9 +141,11 @@ def connectKPZ(serial):
 
 # MOTOR
 
-def ConnectMotor():
+def ConnectMotor(portNum):
     
-    motor_uri = "xi-com:\\\\.\\COM3"      # Serial port
+    # portNum: port number which the motor is connected to (must be string)
+    
+    motor_uri = "xi-com:\\\\.\\COM" + portNum       # Serial port
     # Get device ID
     motor_id = lib.open_device(motor_uri.encode())
     if motor_id > 0:
@@ -154,3 +159,30 @@ def ConnectMotor():
     
     return motor_id
 
+def test_info(lib, device_id):
+    print("\nGet device info")
+    x_device_information = device_information_t()
+    result = lib.get_device_information(device_id, byref(x_device_information))
+    print("Result: " + repr(result))
+    if result != Result.Ok:
+        print("Device information:")
+        print(" Manufacturer: " +
+                repr(string_at(x_device_information.Manufacturer).decode()))
+        print(" ManufacturerId: " +
+                repr(string_at(x_device_information.ManufacturerId).decode()))
+        print(" ProductDescription: " +
+                repr(string_at(x_device_information.ProductDescription).decode()))
+        print(" Major: " + repr(x_device_information.Major))
+        print(" Minor: " + repr(x_device_information.Minor))
+        print(" Release: " + repr(x_device_information.Release))
+
+def test_status(lib, device_id):
+    print("\nGet status")
+    x_status = status_t()
+    result = lib.get_status(device_id, byref(x_status))
+    print("Result: " + repr(result))
+    if result != Result.Ok:
+        print("Status.CurSpeed: " + repr(x_status.CurSpeed))
+        print("Status.Upwr: " + repr(x_status.Upwr))
+        print("Status.Iusb: " + repr(x_status.Iusb))
+        print("Status.Flags: " + repr(hex(x_status.Flags)))
